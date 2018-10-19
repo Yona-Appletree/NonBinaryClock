@@ -1,4 +1,5 @@
 include <util.scad>;
+include <fasteners.scad>;
 
 /////////////////////////////////
 // Module Calls
@@ -16,7 +17,7 @@ include <util.scad>;
 * screwTestingPlate();
 * textTestingPlate();
 
-* assembledClock();
+assembledClock();
 * lgpCube($extrude=true);
 * faceAcrylic();
 
@@ -32,12 +33,14 @@ include <util.scad>;
 
 * backAcrylic();
 
-sideAcrylic(false);
+* sideAcrylic(true);
 * translateY(clockFrameDepth + facePlateThickness + 1) sideAcrylic(false);
 
 * lgpCubeRetainerHalf($extrude=true);
 
 * clockFrame();
+
+* screwTestingBlock();
 
 /////////////////////////////////
 // Variable Definitions
@@ -130,17 +133,30 @@ pushSwitchOffset = [0, 8.5];
 
 wireHoleDiameter = 4.5;
 
+sideFaceScrewInset = clockFrameWallThickness;
+
 
 mountingScrewHeadHoleDiameter = 8.5;
 mountingScrewShaftHoleDiameter = 3.5;
 
-faceScrewClearanceHoleDiameter = 2.6;
-faceScrewReceiverHoleDiameter = 2.25;
+// https://www.mcmaster.com/94414a148
+faceScrewClearanceHoleDiameter = 4;
+faceScrewReceiverHoleDiameter = 3.25;
 
+standHoleThickness=0.115;
+
+echo("faceScrewClearanceHoleDiameter", faceScrewClearanceHoleDiameter);
+echo("faceScrewReceiverHoleDiameter", faceScrewReceiverHoleDiameter);
+
+// Screw Inserts (https://www.mcmaster.com/92395a113)
+screwInsertHoleDiameter = inches(3/16);
+screwInsertHoleDepth = inches(1/4)+1;
 
 echo("Face Size (mm)", facePlateSize.x, facePlateSize.y);
 echo("Face Size (in)", facePlateSize.x / 25.4, facePlateSize.y / 25.4);
 echo("Face Ratio", facePlateSize.x / facePlateSize.y);
+
+
 
 /////////////////////////////////
 // Module Definitions
@@ -194,9 +210,6 @@ module screwTestingPlate() {
 			translateX(-10)
 				rotate(90)
 				circle(d=faceScrewClearanceHoleDiameter, $fn=24);
-
-		translateY(7)
-			text("<3 gabe!", size=4, halign="center", valign="bottom", font="Source Sans Pro Light", spacing=1, $fn=50);
 	}
 }
 
@@ -222,24 +235,30 @@ module textTestingPlate() {
 }
 
 module screwTestingBlock() {
+	function roundToDigits(n, d=1) = round(n*pow(10,d)) / pow(10,d);
+
 	difference() {
 		csquare(
-			[ 15, 16, 12 ],
+			[ 20, 20, 12 ],
 			center=[-.5,-.42],
 			$fn=12
 		);
 
 		for(x=[-1,1], y=[-1,1])
-			translate([ x*4, y*4 ])
+			translate([ x*5, y*5 ])
 			translateZ(-.1) {
 				i = (x==1?1:0) * 2 + (y==1?1:0);
 
-				d = faceScrewReceiverHoleDiameter + i*.25;
-				cylinder(d=d, h=9, $fn=24);
-				translateY(1.5)
-					linear_extrude(1)
+				d = faceScrewReceiverHoleDiameter + i*.1;
+				cylinder(d=d, h=20, $fn=24);
+
+				for (z=[0,1])
+				translateZ(z*11)
+					translateY(faceScrewReceiverHoleDiameter*.9)
+					linear_extrude(2, convexity=3)
 					mirrorY(1)
-					text(str(d), size=2, halign="center", valign="top");
+					mirrorX(z)
+					text(str(roundToDigits(d)), size=3.5, halign="center", valign="top");
 			}
 	}
 }
@@ -300,10 +319,6 @@ module sideAcrylic(
 					]
 				);
 
-//			translateX(clockFrameWallThickness + 4)
-//				translateY(clockFrameDepth/2)
-//				csquare(usbFemaleCutoutSize, center=[0,-.5]);
-
 			for (i=[0:buttonCount-1])
 				translateY(clockFrameDepth/2)
 				translateX(facePlateThickness + clockFrameWallThickness + buttonClusterEdgeMargin + (pushSwitchCutoutSize.y + buttonSpacing) * i)
@@ -313,6 +328,13 @@ module sideAcrylic(
 					translateY(pushSwitchCutoutSize.y/2 + 1.5)
 					#text(buttonLabels[i], size=4, halign="center", valign="bottom", font="Source Sans Pro Light", spacing=1, $fn=50);
 				}
+
+			// Screw Holes
+			translateX(facePlateThickness)
+				for(x=[0,1], y=[0,.5,1], z=[0, 1])
+				translateX(clockFrameWallThickness/2 + sideFaceScrewInset + y*(facePlateSize.y - facePlateThickness*2 - clockFrameWallThickness - sideFaceScrewInset*2))
+				translateY(clockFrameWallThickness/2 + z*(clockFrameDepth - clockFrameWallThickness))
+				circle(d=faceScrewReceiverHoleDiameter, $fn=24);
 		}
 }
 
@@ -362,11 +384,11 @@ module backAcrylic() {
 				for(x=[-1,1])
 				translateY(facePlateSize.y/2 - (facePlateSize.y*1/4))
 				translateX(x*(facePlateSize.x*3/5)/2)
-				csquare([ lgpCubeRetainerWidth, 15 ], center=true);
+				csquare([ standHoleThickness, 15 ], center=true);
 
 			// Screw Holes
 			translate(facePlateSize/2)
-				for(x=[-1,1], y=[-1,1])
+				for(x=[-1,-.25,.25,1], y=[-1,1])
 				translateX(x * (facePlateSize.x / 2 - facePlateThickness - clockFrameWallThickness/2))
 				translateY(y * (facePlateSize.y / 2 - facePlateThickness - clockFrameWallThickness/2))
 				circle(d=faceScrewClearanceHoleDiameter, $fn=24);
@@ -392,6 +414,14 @@ module topBottomAcrylic(
 				translateX(facePlateSize.x/2)
 				projection(cut=true)
 				wireHole();
+
+
+			// Screw Holes
+			translateX(facePlateThickness)
+				for(x=[0,.33,.66,1], y=[0,1])
+				translateX(clockFrameWallThickness/2 + sideFaceScrewInset + x*(facePlateSize.x - facePlateThickness*2 - clockFrameWallThickness - sideFaceScrewInset*2))
+				translateY(clockFrameWallThickness/2 + y*(clockFrameDepth - clockFrameWallThickness))
+				circle(d=faceScrewReceiverHoleDiameter, $fn=24);
 		}
 }
 
@@ -452,15 +482,37 @@ module clockFrame() {
 					mirrorZ(1)
 					wireHole();
 
-
-				// Screw Holes
-				translateZ(clockFrameDepth+.1)
+				// Screw Holes: Front and Back Faces
+				translateZ(clockFrameDepth)
 					translate(facePlateSize/2 - v2(facePlateThickness))
-					for(x=[-1,1], y=[-1,1])
+					for(y=[-1,1], z=[0, 1])
+						for(x=z?[-1,0,1]:[-1,-.25,.25,1])
 					translateX(x * (facePlateSize.x / 2 - facePlateThickness - clockFrameWallThickness/2))
 					translateY(y * (facePlateSize.y / 2 - facePlateThickness - clockFrameWallThickness/2))
-					mirrorZ(1)
-					cylinder(d=faceScrewReceiverHoleDiameter, h=15, $fn=24);
+					translateZ(z * -clockFrameDepth)
+					translateZ((z?-1:1) * .1)
+					mirrorZ(z?0:1)
+					cylinder(d=z?faceScrewReceiverHoleDiameter:screwInsertHoleDiameter, h=screwInsertHoleDepth, $fn=24);
+
+				// Screw Holes: Left and Right Sides
+				for(x=[0,1], y=[0,.5,1], z=[0, 1])
+					translateX(x*(facePlateSize.x - facePlateThickness*2))
+					translateY(clockFrameWallThickness/2 + sideFaceScrewInset + y*(facePlateSize.y - facePlateThickness*2 - clockFrameWallThickness - sideFaceScrewInset*2))
+					translateZ(clockFrameWallThickness/2 + z*(clockFrameDepth - clockFrameWallThickness))
+					rotateY(90)
+					mirrorZ(x?1:0)
+					translateZ(-.1)
+					cylinder(d=faceScrewReceiverHoleDiameter, h=screwInsertHoleDepth*3, $fn=24);
+
+				// Screw Holes: Top and Bottom Sides
+				for(x=[0,.33,.66,1], y=[0,1], z=[0, 1])
+					translateX(clockFrameWallThickness/2 + sideFaceScrewInset + x*(facePlateSize.x - facePlateThickness*2 - clockFrameWallThickness - sideFaceScrewInset*2))
+					translateY(y*(facePlateSize.y - facePlateThickness*2))
+					translateZ(clockFrameWallThickness/2 + z*(clockFrameDepth - clockFrameWallThickness))
+					rotateX(90)
+					mirrorZ(y?0:1)
+					translateZ(-.1)
+					cylinder(d=faceScrewReceiverHoleDiameter, h=screwInsertHoleDepth, $fn=24);
 			}
 }
 
@@ -596,11 +648,52 @@ module placeCubesOnFace(colNums=[0:len(faceDigitColumns)-1]) {
 
 			translateX($colNum * (lgpCubeEdgeLength + faceColSpacing))
 				for(rowNum = [0:rowCount-1]) {
-					translateX(faceDigitStairStepOffset * rowNum)
-						translateY(rowNum * (lgpCubeEdgeLength + faceRowSpacing))
+					digitPos = [faceDigitStairStepOffset * rowNum, rowNum * (lgpCubeEdgeLength + faceRowSpacing)];
+
+					translate(digitPos)
 						children();
 				}
 		}
+}
+
+writeDigitMetadata();
+
+module writeDigitMetadata() {
+	digitsAreaSize = [
+		(lgpCubeEdgeLength + faceColSpacing) * faceDigitColumnCount
+			- faceColSpacing
+			+ faceDigitStairStepOffset * (faceDigitMaxRowCount-1),
+
+		(lgpCubeEdgeLength + faceRowSpacing) * faceDigitMaxRowCount
+			- faceRowSpacing
+	];
+
+	echo(str("uint16_t digitAreaWidth = ", digitsAreaSize.x, ";"));
+	echo(str("uint16_t digitAreaHeight = ", digitsAreaSize.y, ";"));
+
+	echo(str("DigitMapping digitMappings[", len(faceDigitColumns), "][", 4, "] = { "));
+
+	colNums=[0:len(faceDigitColumns)-1];
+	for($colNum = colNums) {
+		rowCount = faceDigitColumns[$colNum];
+
+		echo("\t{");
+
+		for(rowNum = [0:rowCount-1]) {
+			digitPos = [
+					$colNum * (lgpCubeEdgeLength + faceColSpacing) + faceDigitStairStepOffset * rowNum,
+					rowNum * (lgpCubeEdgeLength + faceRowSpacing)
+				] + lgpCubeHoleSize / 2;
+
+			digitPosFromCenter = digitPos - digitsAreaSize / 2;
+
+			echo(str("\t\t{ .x=", round(digitPos.x), ", .y=", round(digitPos.y), ", .angle=", floor(127+atan2(digitPosFromCenter.y, digitPosFromCenter.x) * 255 / 360), " },"));
+		}
+
+		echo("\t},");
+	}
+
+	echo("};");
 }
 
 module faceAcrylic() {
